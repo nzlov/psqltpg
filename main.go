@@ -14,7 +14,7 @@ var (
 	fp  = flag.Bool("p", false, "跳过当前周期")
 	fs  = flag.Int64("s", time.Now().Unix(), "开始时间")
 	fc  = flag.Int("c", 0, "创建主分区(0,1,2,3,4):\n 0 不创建\n 1 创建\n 2 重名创建\n 3 迁移老数据\n 4 迁移并清理老数据\n")
-	fdd = flag.Int("dd", 0, "禁用default分区(0,1,2,3):\n 0 不禁用\n 1 禁用\n 2 禁用并转移default\n 3 禁用并转移清理default\n")
+	fdd = flag.Int("dd", 0, "default分区(0,1,2,3,4):\n 0 不禁用\n 1 创建\n 2 禁用\n 3 禁用并转移default\n 4 禁用并转移清理default\n")
 
 	l = "y"
 )
@@ -42,7 +42,7 @@ func main() {
 				fmt.Printf("CREATE TABLE %s (id serial,addtime int8,%s) PARTITION BY RANGE(addtime);\n", t, *ff)
 			}
 		}
-		if *fdd > 0 {
+		if *fdd > 1 {
 			fmt.Printf("ALTER TABLE %s DETACH PARTITION %s_default;\n", t, t)
 		}
 
@@ -50,14 +50,16 @@ func main() {
 			fmt.Printf("CREATE TABLE %s_%st%s PARTITION OF %s FOR VALUES FROM (%v) TO (%v);\n", t, getTableS(ranges[i]), getTableS(ranges[i+1]), t, ranges[i].Unix(), ranges[i+1].Unix())
 		}
 
-		if *fdd > 0 {
-			if *fdd > 1 {
+		if *fdd > 1 {
+			if *fdd > 2 {
 				fmt.Printf("INSERT INTO %s SELECT * FROM %s_default;\n", t, t)
-				if *fdd == 3 {
+				if *fdd == 4 {
 					fmt.Printf("TRUNCATE TABLE %s_default;\n", t)
 				}
 			}
 			fmt.Printf("ALTER TABLE %s ATTACH PARTITION %s_default DEFAULT;\n", t, t)
+		} else if *fdd == 1 {
+			fmt.Printf("CREATE TABLE %s_default PARTITION OF %s DEFAULT;\n", t, t)
 		}
 
 		if *fc > 2 {
